@@ -1,0 +1,46 @@
+{
+  "persons": {
+    "p_elena": {
+      "id": "p_elena",
+      "firstName": "Elena",
+      "lastName": "Vasquez",
+      "birthDate": "1948",
+      "notes": "Sample data — edit freely."
+    },
+    "p_marco": {
+      "id": "p_marco",
+      "firstName": "Marco",
+      "lastName": "Vasquez",
+      "birthDate": "1945",
+      "deathDate": "2018"
+    },
+    "p_sofia": {
+      "id": "p_sofia",
+      "firstName": "Sofia",
+      "lastName": "Vasquez",
+      "birthDate": "1975"
+    },
+    "p_luis": {
+      "id": "p_luis",
+      "firstName": "Luis",
+      "lastName": "Ortega",
+      "birthDate": "1973"
+    },
+    "p_nina": {
+      "id": "p_nina",
+      "firstName": "Nina",
+      "lastName": "Ortega",
+      "birthDate": "2004"
+    }
+  },
+  "parentChild": [
+    { "id": "pc1", "parentId": "p_elena", "childId": "p_sofia" },
+    { "id": "pc2", "parentId": "p_marco", "childId": "p_sofia" },
+    { "id": "pc3", "parentId": "p_sofia", "childId": "p_nina" },
+    { "id": "pc4", "parentId": "p_luis", "childId": "p_nina" }
+  ],
+  "partnerships": [
+    { "id": "ps1", "aId": "p_elena", "bId": "p_marco" },
+    { "id": "ps2", "aId": "p_sofia", "bId": "p_luis" }
+  ]
+}

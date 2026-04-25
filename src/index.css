@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: 255 255 255;
+  --surface-muted: 247 247 248;
+  --ink: 28 28 30;
+  --ink-muted: 110 110 120;
+  --accent: 124 158 178;
+  --accent-hover: 98 132 152;
+  --border: 228 228 232;
+  --edge-pc: 100 130 150;
+  --edge-ps: 160 140 180;
+}
+
+.dark {
+  --surface: 24 24 27;
+  --surface-muted: 34 34 39;
+  --ink: 244 244 246;
+  --ink-muted: 160 160 170;
+  --accent: 140 170 190;
+  --accent-hover: 160 188 206;
+  --border: 55 55 62;
+  --edge-pc: 130 160 185;
+  --edge-ps: 170 150 195;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  @apply bg-surface text-ink antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+::selection {
+  @apply bg-accent/25;
+}
+
+/* React Flow — infographic tree (gold on charcoal) */
+.family-tree-canvas .react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.family-tree-canvas .family-edge-parent .react-flow__edge-path {
+  stroke-opacity: 0.7;
+}
+
+.family-tree-canvas .family-edge-child .react-flow__edge-path {
+  stroke-opacity: 0.96;
+  filter: drop-shadow(0 0 1px rgba(197, 160, 89, 0.28));
+}
+
+.family-tree-canvas .family-edge-partner .react-flow__edge-path {
+  stroke-opacity: 0.42;
+}
+
+.family-tree-canvas .family-hub-node {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.family-tree-canvas .react-flow__arrowhead polyline,
+.family-tree-canvas .react-flow__arrowhead polygon {
+  stroke: #c5a059;
+  fill: #c5a059;
+}
+
+.family-tree-controls .react-flow__controls-button {
+  border-bottom: 1px solid rgba(197, 160, 89, 0.22);
+  background: #1a1a1a;
+}
+
+.family-tree-controls .react-flow__controls-button:hover {
+  background: #242424;
+}
+
+.family-tree-controls .react-flow__controls-button svg {
+  fill: #c5a059;
+}
+
+.family-tree-controls .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
