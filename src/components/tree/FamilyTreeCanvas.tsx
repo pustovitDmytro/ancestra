@@ -3,7 +3,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MarkerType,
   MiniMap,
   Panel,
   ReactFlow,
@@ -126,13 +125,13 @@ function buildGraph(
         id: `fp-${familyNodeId}-${parentId}`,
         source: parentId,
         target: familyNodeId,
-        type: 'step',
+        type: 'straight',
         animated: false,
         className: 'family-edge family-edge-parent',
         style: {
           stroke: TREE_GOLD,
-          strokeWidth: active ? 1.6 : 1.05,
-          opacity: active ? 0.88 : 0.42,
+          strokeWidth: active ? 1.4 : 0.95,
+          opacity: active ? 0.78 : 0.28,
         },
       });
     }
@@ -143,19 +142,13 @@ function buildGraph(
         id: `fc-${familyNodeId}-${childId}`,
         source: familyNodeId,
         target: childId,
-        type: 'step',
+        type: 'straight',
         animated: false,
         className: 'family-edge family-edge-child',
         style: {
           stroke: TREE_GOLD,
-          strokeWidth: active ? 2.05 : 1.45,
-          opacity: active ? 1 : 0.74,
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 11,
-          height: 11,
-          color: TREE_GOLD,
+          strokeWidth: active ? 1.8 : 1.25,
+          opacity: active ? 0.9 : 0.52,
         },
       });
     }
@@ -171,9 +164,9 @@ function buildGraph(
       className: 'family-edge family-edge-partner',
       style: {
         stroke: TREE_GOLD,
-        strokeWidth: active ? 1.25 : 0.9,
+        strokeWidth: active ? 1.05 : 0.8,
         strokeDasharray: '4 6',
-        opacity: active ? 0.86 : 0.34,
+        opacity: active ? 0.64 : 0.22,
       },
     });
   }

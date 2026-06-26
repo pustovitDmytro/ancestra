@@ -5,6 +5,8 @@ export interface Person {
   id: PersonId;
   firstName: string;
   lastName: string;
+  /** Biological sex used for pedigree styling and GEDCOM SEX export/import */
+  sex?: 'M' | 'F' | 'U';
   birthDate?: string;
   deathDate?: string;
   notes?: string;

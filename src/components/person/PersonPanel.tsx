@@ -21,6 +21,7 @@ export function PersonPanel({ personId, onClose }: Props) {
 
   const [firstName, setFirst] = useState('');
   const [lastName, setLast] = useState('');
+  const [sex, setSex] = useState<'M' | 'F' | 'U'>('U');
   const [birthDate, setBirth] = useState('');
   const [deathDate, setDeath] = useState('');
   const [notes, setNotes] = useState('');
@@ -30,6 +31,7 @@ export function PersonPanel({ personId, onClose }: Props) {
     if (!person) return;
     setFirst(person.firstName);
     setLast(person.lastName);
+    setSex(person.sex ?? 'U');
     setBirth(person.birthDate ?? '');
     setDeath(person.deathDate ?? '');
     setNotes(person.notes ?? '');
@@ -66,6 +68,7 @@ export function PersonPanel({ personId, onClose }: Props) {
     updatePerson(personId, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      sex: sex === 'U' ? undefined : sex,
       birthDate: birthDate.trim() || undefined,
       deathDate: deathDate.trim() || undefined,
       notes: notes.trim() || undefined,
@@ -148,6 +151,19 @@ export function PersonPanel({ personId, onClose }: Props) {
               onBlur={saveFields}
               className="mt-1 w-full rounded-xl border border-border bg-surface-muted px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30"
             />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-ink-muted">Sex</span>
+            <select
+              value={sex}
+              onChange={(e) => setSex(e.target.value as 'M' | 'F' | 'U')}
+              onBlur={saveFields}
+              className="mt-1 w-full rounded-xl border border-border bg-surface-muted px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30"
+            >
+              <option value="U">Unknown</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-ink-muted">Birth</span>

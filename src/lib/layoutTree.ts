@@ -3,12 +3,12 @@ import type { PersonId, TreeState } from '@/types';
 /** Portrait node: circle + label below (see PersonNode) */
 export const NODE_W = 128;
 export const NODE_H = 160;
-const GAP_X = 64;
-const GAP_Y = 136;
+const GAP_X = 78;
+const GAP_Y = 168;
 
 /** Space between partners side-by-side */
 const PARTNER_GAP = 18;
-const FAMILY_GAP = 170;
+const FAMILY_GAP = 120;
 
 export interface LayoutPosition {
   x: number;
@@ -80,6 +80,16 @@ function resolveOverlaps(layerIds: PersonId[], pos: Map<PersonId, LayoutPosition
       pCur.x = minX;
     }
   }
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    const cur = sorted[i]!;
+    const next = sorted[i + 1]!;
+    const pCur = pos.get(cur)!;
+    const pNext = pos.get(next)!;
+    const maxX = pNext.x - (NODE_W + GAP_X);
+    if (pCur.x > maxX) {
+      pCur.x = maxX;
+    }
+  }
 }
 
 function applyCoupleAdjacency(
@@ -95,17 +105,12 @@ function applyCoupleAdjacency(
     if (ax == null || bx == null) continue;
     const leftId = ax <= bx ? ps.aId : ps.bId;
     const rightId = leftId === ps.aId ? ps.bId : ps.aId;
-    const targetRight = (pos.get(leftId)?.x ?? 0) + NODE_W + PARTNER_GAP;
-    const delta = targetRight - (pos.get(rightId)?.x ?? 0);
-    if (Math.abs(delta) < 0.1) continue;
-
-    const ordered = [...ids].sort((a, b) => (pos.get(a)?.x ?? 0) - (pos.get(b)?.x ?? 0));
-    const start = ordered.indexOf(rightId);
-    for (let i = start; i < ordered.length; i++) {
-      const id = ordered[i]!;
-      const p = pos.get(id);
-      if (p) p.x += delta;
-    }
+    const mid = (ax + bx) / 2;
+    const half = (NODE_W + PARTNER_GAP) / 2;
+    const leftPos = pos.get(leftId);
+    const rightPos = pos.get(rightId);
+    if (leftPos) leftPos.x = mid - half;
+    if (rightPos) rightPos.x = mid + half;
   }
   resolveOverlaps(ids, pos);
 }
@@ -203,18 +208,27 @@ export function computeFamilyLayout(tree: TreeState): {
         return nameCompare(tree, a, b);
       });
 
-      let cursor = 0;
-      let prevKey = '';
+      const desiredCenters: number[] = [];
       for (const id of ordered) {
         const parents = getParents(tree, id).filter((p) => tree.persons[p]).sort();
         const key = parentKey(parents) || `single:${id}`;
-        if (prevKey && key !== prevKey) cursor += FAMILY_GAP;
-        const target = desired.get(id) ?? cursor;
-        const x = Math.max(cursor, target - NODE_W / 2);
-        pos.set(id, { x, y });
-        cursor = x + NODE_W + GAP_X;
-        prevKey = key;
+        const target = desired.get(id) ?? desiredCenters.length * (NODE_W + GAP_X);
+        const groupOffset = key.startsWith('single:') ? 0 : FAMILY_GAP * 0.12;
+        pos.set(id, { x: target - NODE_W / 2 + groupOffset, y });
+        desiredCenters.push(target);
       }
+      resolveOverlaps(layerIds, pos);
+      const actualCenters = ordered.map((id) => nodeCenterX(pos.get(id)!.x));
+      if (actualCenters.length > 0 && desiredCenters.length > 0) {
+        const actualMid = actualCenters.reduce((s, x) => s + x, 0) / actualCenters.length;
+        const desiredMid = desiredCenters.reduce((s, x) => s + x, 0) / desiredCenters.length;
+        const shift = desiredMid - actualMid;
+        for (const id of layerIds) {
+          const p = pos.get(id);
+          if (p) p.x += shift;
+        }
+      }
+      resolveOverlaps(layerIds, pos);
       applyCoupleAdjacency(tree.partnerships, layerIds, pos);
     }
 
@@ -225,7 +239,7 @@ export function computeFamilyLayout(tree: TreeState): {
       if (parentCenters.length === 0) continue;
       const center = parentCenters.reduce((s, x) => s + x, 0) / parentCenters.length;
       fam.x = center;
-      fam.y = y + NODE_H + Math.round(GAP_Y * 0.3);
+      fam.y = y + NODE_H + Math.round(GAP_Y * 0.22);
       for (const c of fam.children) {
         const current = desired.get(c);
         desired.set(c, current == null ? center : (current + center) / 2);

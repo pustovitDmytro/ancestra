@@ -14,6 +14,11 @@ export type PersonFlowNode = Node<PersonNodeData, 'person'>;
 
 const GOLD = '#C5A059';
 const RED = '#ff1a1a';
+const SEX_ACCENT: Record<'M' | 'F' | 'U', string> = {
+  M: '#5aa9ff',
+  F: '#ff86b9',
+  U: GOLD,
+};
 
 function PersonNodeInner(props: NodeProps<PersonFlowNode>) {
   const { data } = props;
@@ -23,6 +28,7 @@ function PersonNodeInner(props: NodeProps<PersonFlowNode>) {
   const sub = dates || generationLabel || '';
   const isPlaceholderName = !name.trim() || /^unknown\b/i.test(name.trim());
   const showQuestion = isPlaceholderName && !person.photoDataUrl;
+  const sexAccent = SEX_ACCENT[person.sex ?? 'U'];
 
   return (
     <div
@@ -44,7 +50,12 @@ function PersonNodeInner(props: NodeProps<PersonFlowNode>) {
             ? 'border-[#ff1a1a] shadow-[0_0_14px_rgba(255,26,26,0.45)]'
             : 'border-[#C5A059] shadow-[inset_0_0_0_1px_rgba(197,160,89,0.15)]',
         ].join(' ')}
-        style={{ borderColor: selected ? RED : GOLD }}
+        style={{
+          borderColor: selected ? RED : GOLD,
+          boxShadow: selected
+            ? '0 0 14px rgba(255,26,26,0.45)'
+            : `0 0 0 1px ${sexAccent}66, inset 0 0 0 1px rgba(197,160,89,0.15)`,
+        }}
       >
         {person.photoDataUrl ? (
           <img

@@ -50,6 +50,7 @@ function parseName(value: string): { first: string; last: string } {
 type IndiBlock = {
   xref: string;
   name?: string;
+  sex?: 'M' | 'F' | 'U';
   birth?: string;
   death?: string;
   famc?: string;
@@ -82,6 +83,10 @@ function readBlocks(lines: GedLine[]): { indi: IndiBlock[]; fam: FamBlock[] } {
         if (ln.level === 1) {
           pending = null;
           if (ln.tag === 'NAME') block.name = ln.value;
+          else if (ln.tag === 'SEX') {
+            const normalized = ln.value.trim().toUpperCase();
+            block.sex = normalized === 'M' || normalized === 'F' ? normalized : 'U';
+          }
           else if (ln.tag === 'FAMC' && ln.value.startsWith('@')) block.famc = ln.value;
           else if (ln.tag === 'FAMS' && ln.value.startsWith('@')) block.fams.push(ln.value);
           else if (ln.tag === 'BIRT') pending = 'BIRT';
@@ -140,6 +145,7 @@ export function parseGedcom(text: string): TreeState {
       id,
       firstName: first,
       lastName: last,
+      sex: ib.sex,
       birthDate: ib.birth,
       deathDate: ib.death,
       notes: `Imported from GEDCOM (${k})`,
@@ -233,6 +239,9 @@ export function exportGedcom(tree: TreeState): string {
     const name = `${p.firstName} /${p.lastName || 'Unknown'}/`.trim();
     out.push(`0 ${xr} INDI`);
     out.push(`1 NAME ${name || '/Unknown/'}`);
+    if (p.sex) {
+      out.push(`1 SEX ${p.sex}`);
+    }
     if (p.birthDate) {
       out.push('1 BIRT');
       out.push(`2 DATE ${p.birthDate}`);
