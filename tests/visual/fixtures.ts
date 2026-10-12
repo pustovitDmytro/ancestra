@@ -14,7 +14,7 @@ function listGed(dir: string): string[] {
 
 /** GED filenames to render: public fixtures plus the private ged/ selection */
 export function listGedFixtures(): string[] {
-  return [...listGed(FIXTURE_DIR), ...listLocalGed()];
+  return [...new Set([...listGed(FIXTURE_DIR), ...listLocalGed()])];
 }
 
 /** Private trees from ged/, narrowed by ged/visual-tests.json when present */

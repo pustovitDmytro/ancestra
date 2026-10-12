@@ -167,7 +167,7 @@ export function ensureTreeEvents(tree: TreeState): TreeState {
   if (!tree.events?.length) return { ...tree, events: backfillPersonEvents(tree) };
   // Trees saved before date edits were mirrored into events can hold stale BIRT/DEAT.
   const next = cloneTree(tree);
-  for (const id of Object.keys(next.persons)) syncPersonDateEventsOp(next, id);
+  for (const id of Object.keys(next.persons)) syncPersonDateEventsOp(next, id, { repairOnly: true });
   return next;
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ensureTreeEvents } from '@/lib/familyEvents';
+import { ensureTreeEvents, treeNeedsGedcomReimport } from '@/lib/familyEvents';
 import { addPersonOp, syncPersonDateEventsOp } from '@/lib/treeOps';
 import { emptyTree } from '@/types';
 
@@ -50,6 +50,22 @@ describe('person date events', () => {
     tree.persons[id]!.birthDate = 'ABT 1816';
     syncPersonDateEventsOp(tree, id);
     expect(tree.events.filter(own('BIRT', id)).map((e) => e.date)).toEqual(['1815', 'ABT 1816']);
+  });
+
+  it('keeps the re-import hint on a legacy tree after adding a person', () => {
+    const tree = emptyTree();
+    addPersonOp(tree, { firstName: 'Ann', lastName: 'Lee', notes: 'Imported from GEDCOM (I1)' });
+    const b = addPersonOp(tree, { firstName: 'Bob', lastName: 'Lee' });
+    tree.partnerships.push({ id: 'ps', aId: Object.keys(tree.persons)[0]!, bId: b });
+    addPersonOp(tree, { firstName: 'Cid', lastName: 'Lee', birthDate: '1990' });
+    expect(treeNeedsGedcomReimport(tree)).toBe(true);
+  });
+
+  it('never removes a dated event on load when the person field is empty', () => {
+    const tree = emptyTree();
+    const id = addPersonOp(tree, { firstName: 'Ada', lastName: 'Lovelace' });
+    tree.events.push({ id: 'b', type: 'BIRT', date: '1815', personIds: [id] });
+    expect(ensureTreeEvents(tree).events.find(own('BIRT', id))?.date).toBe('1815');
   });
 
   it('repairs stale events on load', () => {

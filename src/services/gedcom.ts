@@ -109,15 +109,15 @@ function readBlocks(lines: GedLine[]): { indi: IndiBlock[]; fam: FamBlock[] } {
                 raw && raw !== 'Y' && raw !== 'N' ? raw : undefined,
             };
             block.events.push(pending);
-            if (ln.tag === 'BIRT') block.birth = pending.date;
-            else if (ln.tag === 'DEAT') block.death = pending.date;
           } else {
             pending = null;
           }
         } else if (pending && ln.level === 2) {
           applyEventField(pending, ln.tag, ln.value);
-          if (pending.type === 'BIRT') block.birth = pending.date;
-          else if (pending.type === 'DEAT') block.death = pending.date;
+          if (ln.tag === 'DATE' && ln.value) {
+            if (pending.type === 'BIRT') block.birth ??= ln.value;
+            else if (pending.type === 'DEAT') block.death ??= ln.value;
+          }
         }
         i++;
       }
@@ -296,14 +296,22 @@ const FAMILY_EVENT_TAGS = new Set(['ANUL', 'DIV', 'DIVF', 'ENGA', 'MARB', 'MARC'
 /** Tags whose level-1 value is the event's descriptor rather than `Y` */
 const VALUE_EVENT_TAGS = new Set(['CAST', 'EDUC', 'OCCU', 'RELI']);
 
+/** GEDCOM values are single-line */
+function oneLine(value?: string): string {
+  return value?.replace(/\s*[\r\n]+\s*/g, ' ').trim() ?? '';
+}
+
 function eventLines(event: FamilyEvent): string[] {
   const valued = VALUE_EVENT_TAGS.has(event.type);
-  const empty = !event.date && !event.place && !event.description;
-  const value = valued ? (event.description ?? '') : empty ? 'Y' : '';
+  const description = oneLine(event.description);
+  const date = oneLine(event.date);
+  const place = oneLine(event.place);
+  const empty = !date && !place && !description;
+  const value = valued ? description : empty ? 'Y' : '';
   const out = [`1 ${event.type}${value ? ` ${value}` : ''}`];
-  if (!valued && event.description) out.push(`2 TYPE ${event.description}`);
-  if (event.date) out.push(`2 DATE ${event.date}`);
-  if (event.place) out.push(`2 PLAC ${event.place}`);
+  if (!valued && description) out.push(`2 TYPE ${description}`);
+  if (date) out.push(`2 DATE ${date}`);
+  if (place) out.push(`2 PLAC ${place}`);
   return out;
 }
 
@@ -318,54 +326,68 @@ export function exportGedcom(tree: TreeState): string {
   const pairKey = (a: string, b: string) => [a, b].sort().join('|');
   const famLines = new Map<string, string[]>();
   const famXrefByPair = new Map<string, string>();
-  const parentFam = new Map<string, string>();
+  const soloFam = new Map<string, string>();
 
-  const openFam = (parentIds: string[]): string => {
+  const openFam = (lines: string[]): string => {
     const fx = nextFamXref();
-    const lines: string[] = [];
-    const [a, b] = parentIds.map((id) => idToXref.get(id));
-    if (a) lines.push(`1 HUSB ${a}`);
-    if (b) lines.push(`1 WIFE ${b}`);
     famLines.set(fx, lines);
     return fx;
   };
 
   for (const pr of tree.partnerships) {
-    const fx = openFam([pr.aId, pr.bId]);
+    const a = idToXref.get(pr.aId);
+    const b = idToXref.get(pr.bId);
+    const fx = openFam([...(a ? [`1 HUSB ${a}`] : []), ...(b ? [`1 WIFE ${b}`] : [])]);
     famXrefByPair.set(pairKey(pr.aId, pr.bId), fx);
-    parentFam.set(pr.aId, fx);
-    parentFam.set(pr.bId, fx);
   }
 
-  const chilSeen = new Set<string>();
-  for (const pc of tree.parentChild) {
-    let fx = parentFam.get(pc.parentId);
+  /** One-parent FAM: re-import links the child without inventing a partnership */
+  const soloFamOf = (personId: string): string => {
+    let fx = soloFam.get(personId);
     if (!fx) {
-      fx = openFam([pc.parentId]);
-      parentFam.set(pc.parentId, fx);
+      const role = tree.persons[personId]?.gender === 'female' ? 'WIFE' : 'HUSB';
+      fx = openFam([`1 ${role} ${idToXref.get(personId)}`]);
+      soloFam.set(personId, fx);
     }
-    const cx = idToXref.get(pc.childId);
-    if (cx && !chilSeen.has(`${fx}|${cx}`)) {
-      chilSeen.add(`${fx}|${cx}`);
-      famLines.get(fx)!.push(`1 CHIL ${cx}`);
+    return fx;
+  };
+
+  const parentsByChild = new Map<string, string[]>();
+  for (const pc of tree.parentChild) {
+    if (!idToXref.has(pc.parentId) || !idToXref.has(pc.childId)) continue;
+    const parents = parentsByChild.get(pc.childId) ?? [];
+    if (!parents.includes(pc.parentId)) parents.push(pc.parentId);
+    parentsByChild.set(pc.childId, parents);
+  }
+  for (const [childId, parents] of parentsByChild) {
+    const fams = new Set<string>();
+    const covered = new Set<string>();
+    for (let i = 0; i < parents.length; i++) {
+      for (let j = i + 1; j < parents.length; j++) {
+        const fx = famXrefByPair.get(pairKey(parents[i]!, parents[j]!));
+        if (!fx || covered.has(parents[i]!) || covered.has(parents[j]!)) continue;
+        fams.add(fx);
+        covered.add(parents[i]!).add(parents[j]!);
+      }
     }
+    for (const p of parents) if (!covered.has(p)) fams.add(soloFamOf(p));
+    for (const fx of fams) famLines.get(fx)!.push(`1 CHIL ${idToXref.get(childId)}`);
   }
 
   const indiEvents = new Map<string, FamilyEvent[]>();
+  const addIndiEvent = (personId: string, event: FamilyEvent) =>
+    indiEvents.set(personId, [...(indiEvents.get(personId) ?? []), event]);
   for (const event of tree.events ?? []) {
     const ids = event.personIds.filter((id) => idToXref.has(id));
     if (ids.length === 0) continue;
-    if (ids.length === 1 && !FAMILY_EVENT_TAGS.has(event.type)) {
-      indiEvents.set(ids[0], [...(indiEvents.get(ids[0]) ?? []), event]);
-      continue;
+    const pairFam = ids.length === 2 ? famXrefByPair.get(pairKey(ids[0]!, ids[1]!)) : undefined;
+    if (pairFam) famLines.get(pairFam)!.push(...eventLines(event));
+    else if (ids.length === 1 && FAMILY_EVENT_TAGS.has(event.type)) {
+      famLines.get(soloFamOf(ids[0]!))!.push(...eventLines(event));
+    } else {
+      // Without a partnership a shared FAM would turn into one on re-import.
+      for (const id of ids) addIndiEvent(id, event);
     }
-    const pair = ids.length >= 2 ? pairKey(ids[0], ids[1]) : '';
-    let fx = famXrefByPair.get(pair);
-    if (!fx) {
-      fx = openFam(ids.slice(0, 2));
-      if (pair) famXrefByPair.set(pair, fx);
-    }
-    famLines.get(fx)!.push(...eventLines(event));
   }
 
   const out: string[] = [

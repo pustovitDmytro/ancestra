@@ -30,13 +30,22 @@ const DATE_EVENT_FIELDS = [
   ['DEAT', 'deathDate'],
 ] as const;
 
-/** Mirror a person's birth/death dates into their single-person BIRT/DEAT events */
-export function syncPersonDateEventsOp(tree: TreeState, id: PersonId): void {
+/**
+ * Mirror a person's birth/death dates into their single-person BIRT/DEAT events.
+ * `repairOnly` never removes or blanks an event: load-time data may hold dated
+ * events the person fields don't reflect.
+ */
+export function syncPersonDateEventsOp(
+  tree: TreeState,
+  id: PersonId,
+  { repairOnly = false }: { repairOnly?: boolean } = {}
+): void {
   const person = tree.persons[id];
   if (!person) return;
   tree.events ??= [];
   for (const [type, field] of DATE_EVENT_FIELDS) {
     const date = person[field]?.trim() || undefined;
+    if (repairOnly && !date) continue;
     const own = (e: FamilyEvent) =>
       e.type === type && e.personIds.length === 1 && e.personIds[0] === id;
     if (date && tree.events.some((e) => own(e) && e.date === date)) continue;
@@ -48,7 +57,10 @@ export function syncPersonDateEventsOp(tree: TreeState, id: PersonId): void {
       if (!date && !event.place && !event.description) tree.events.splice(idx, 1);
       else event.date = date;
     } else if (date) {
-      tree.events.push({ id: createId('ev'), type, date, personIds: [id] });
+      // Same id as the familyEvents backfill: these events are derived, not imported.
+      const derivedId = `legacy-${type.toLowerCase()}-${id}`;
+      const taken = tree.events.some((e) => e.id === derivedId);
+      tree.events.push({ id: taken ? createId('ev') : derivedId, type, date, personIds: [id] });
     }
   }
 }
