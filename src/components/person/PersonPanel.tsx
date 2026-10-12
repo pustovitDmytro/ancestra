@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Silhouette } from '@/components/avatar/Silhouette';
+import { TreeStats } from '@/components/stats/TreeStats';
 import { personDisplayName } from '@/lib/treeOps';
 import { useTreeStore } from '@/store/treeStore';
-import type { PersonId } from '@/types';
+import type { Gender, PersonId } from '@/types';
 
 type Props = {
   personId: PersonId | null;
@@ -16,6 +18,9 @@ export function PersonPanel({ personId, onClose }: Props) {
   const removeParentChild = useTreeStore((s) => s.removeParentChild);
   const addPartnership = useTreeStore((s) => s.addPartnership);
   const removePartnership = useTreeStore((s) => s.removePartnership);
+  const focusedId = useTreeStore((s) => s.focusedId);
+  const focusLineage = useTreeStore((s) => s.focusLineage);
+  const clearFocus = useTreeStore((s) => s.clearFocus);
 
   const person = personId ? tree.persons[personId] : null;
 
@@ -24,6 +29,7 @@ export function PersonPanel({ personId, onClose }: Props) {
   const [birthDate, setBirth] = useState('');
   const [deathDate, setDeath] = useState('');
   const [notes, setNotes] = useState('');
+  const [gender, setGender] = useState<Gender | ''>('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +39,7 @@ export function PersonPanel({ personId, onClose }: Props) {
     setBirth(person.birthDate ?? '');
     setDeath(person.deathDate ?? '');
     setNotes(person.notes ?? '');
+    setGender(person.gender ?? '');
   }, [person]);
 
   const others = useMemo(
@@ -56,8 +63,11 @@ export function PersonPanel({ personId, onClose }: Props) {
 
   if (!personId || !person) {
     return (
-      <aside className="hidden lg:flex w-[340px] shrink-0 border-l border-border bg-surface-muted/50 p-6 flex-col justify-center text-center">
-        <p className="text-sm text-ink-muted">Select a person on the tree to view and edit details.</p>
+      <aside className="hidden lg:flex w-[340px] shrink-0 border-l border-border bg-surface flex-col">
+        <TreeStats />
+        <div className="flex flex-1 flex-col justify-center p-6 text-center">
+          <p className="text-sm text-ink-muted">Select a person on the tree to view and edit details.</p>
+        </div>
       </aside>
     );
   }
@@ -69,7 +79,13 @@ export function PersonPanel({ personId, onClose }: Props) {
       birthDate: birthDate.trim() || undefined,
       deathDate: deathDate.trim() || undefined,
       notes: notes.trim() || undefined,
+      gender: gender || undefined,
     });
+  };
+
+  const onGenderChange = (next: Gender | '') => {
+    setGender(next);
+    updatePerson(personId, { gender: next || undefined });
   };
 
   const onPhoto = (e: ChangeEvent<HTMLInputElement>) => {
@@ -86,6 +102,7 @@ export function PersonPanel({ personId, onClose }: Props) {
 
   return (
     <aside className="w-full lg:w-[380px] shrink-0 border-l border-border bg-surface flex flex-col max-h-[calc(100vh-64px)] lg:max-h-none lg:min-h-[calc(100vh-64px)]">
+      <TreeStats />
       <div className="flex items-start justify-between gap-2 p-4 border-b border-border">
         <div>
           <h2 className="text-lg font-semibold text-ink leading-tight">{personDisplayName(person)}</h2>
@@ -106,7 +123,7 @@ export function PersonPanel({ personId, onClose }: Props) {
             {person.photoDataUrl ? (
               <img src={person.photoDataUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm text-ink-muted">No photo</div>
+              <Silhouette gender={person.gender} className="h-full w-full text-ink-muted" />
             )}
           </div>
           <div className="flex flex-col gap-2">
@@ -169,6 +186,33 @@ export function PersonPanel({ personId, onClose }: Props) {
               className="mt-1 w-full rounded-xl border border-border bg-surface-muted px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30"
             />
           </label>
+          <div className="col-span-2">
+            <span className="text-xs font-medium text-ink-muted">Gender</span>
+            <div className="mt-1 inline-flex rounded-xl border border-border bg-surface-muted p-0.5 text-sm">
+              {([
+                ['', 'Unknown'],
+                ['male', 'Male'],
+                ['female', 'Female'],
+              ] as Array<[Gender | '', string]>).map(([value, label]) => {
+                const active = gender === value;
+                return (
+                  <button
+                    key={value || 'unknown'}
+                    type="button"
+                    onClick={() => onGenderChange(value)}
+                    className={[
+                      'rounded-lg px-3 py-1.5 transition',
+                      active
+                        ? 'bg-surface text-ink shadow-sm'
+                        : 'text-ink-muted hover:text-ink',
+                    ].join(' ')}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <label className="block">
@@ -277,6 +321,24 @@ export function PersonPanel({ personId, onClose }: Props) {
             onPick={(id) => addPartnership(personId, id)}
           />
         </section>
+
+        {focusedId === personId ? (
+          <button
+            type="button"
+            onClick={clearFocus}
+            className="w-full rounded-xl border border-accent/40 bg-accent/5 px-3 py-2 text-sm text-accent hover:bg-accent/10 transition"
+          >
+            Show full tree
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => focusLineage(personId)}
+            className="w-full rounded-xl border border-accent/40 bg-accent/5 px-3 py-2 text-sm text-accent hover:bg-accent/10 transition"
+          >
+            View only this lineage
+          </button>
+        )}
 
         <button
           type="button"

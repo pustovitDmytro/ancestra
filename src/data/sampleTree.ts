@@ -8,6 +8,7 @@ export const sampleTree: TreeState = {
       firstName: 'Elena',
       lastName: 'Vasquez',
       birthDate: '1948',
+      gender: 'female',
       notes: 'Sample data — edit freely.',
     },
     p_marco: {
@@ -16,24 +17,28 @@ export const sampleTree: TreeState = {
       lastName: 'Vasquez',
       birthDate: '1945',
       deathDate: '2018',
+      gender: 'male',
     },
     p_sofia: {
       id: 'p_sofia',
       firstName: 'Sofia',
       lastName: 'Vasquez',
       birthDate: '1975',
+      gender: 'female',
     },
     p_luis: {
       id: 'p_luis',
       firstName: 'Luis',
       lastName: 'Ortega',
       birthDate: '1973',
+      gender: 'male',
     },
     p_nina: {
       id: 'p_nina',
       firstName: 'Nina',
       lastName: 'Ortega',
       birthDate: '2004',
+      gender: 'female',
     },
   },
   parentChild: [
@@ -46,4 +51,5 @@ export const sampleTree: TreeState = {
     { id: 'ps1', aId: 'p_elena', bId: 'p_marco' },
     { id: 'ps2', aId: 'p_sofia', bId: 'p_luis' },
   ],
+  events: [],
 };

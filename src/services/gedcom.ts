@@ -3,6 +3,7 @@
  */
 
 import { createId } from '@/lib/id';
+import { isGedcomEventTag } from '@/lib/familyEvents';
 import type { Person, TreeState } from '@/types';
 import { emptyTree } from '@/types';
 
@@ -12,6 +13,13 @@ interface GedLine {
   value: string;
   pointer?: string;
 }
+
+type ParsedEvent = {
+  type: string;
+  date?: string;
+  place?: string;
+  description?: string;
+};
 
 /** GEDCOM: `0 @I1@ INDI` or `1 NAME John /Doe/` */
 function parseLine(raw: string): GedLine | null {
@@ -52,8 +60,10 @@ type IndiBlock = {
   name?: string;
   birth?: string;
   death?: string;
+  sex?: string;
   famc?: string;
   fams: string[];
+  events: ParsedEvent[];
 };
 
 type FamBlock = {
@@ -61,7 +71,14 @@ type FamBlock = {
   husband?: string;
   wife?: string;
   children: string[];
+  events: ParsedEvent[];
 };
+
+function applyEventField(event: ParsedEvent, tag: string, value: string): void {
+  if (tag === 'DATE') event.date = value;
+  else if (tag === 'PLAC') event.place = value;
+  else if (tag === 'TYPE') event.description = value;
+}
 
 function readBlocks(lines: GedLine[]): { indi: IndiBlock[]; fam: FamBlock[] } {
   const indi: IndiBlock[] = [];
@@ -74,21 +91,33 @@ function readBlocks(lines: GedLine[]): { indi: IndiBlock[]; fam: FamBlock[] } {
       continue;
     }
     if (L.tag === 'INDI' && L.pointer) {
-      const block: IndiBlock = { xref: L.pointer, fams: [] };
+      const block: IndiBlock = { xref: L.pointer, fams: [], events: [] };
       i++;
-      let pending: 'BIRT' | 'DEAT' | null = null;
+      let pending: ParsedEvent | null = null;
       while (i < lines.length && lines[i].level > 0) {
         const ln = lines[i];
         if (ln.level === 1) {
-          pending = null;
           if (ln.tag === 'NAME') block.name = ln.value;
+          else if (ln.tag === 'SEX') block.sex = ln.value;
           else if (ln.tag === 'FAMC' && ln.value.startsWith('@')) block.famc = ln.value;
           else if (ln.tag === 'FAMS' && ln.value.startsWith('@')) block.fams.push(ln.value);
-          else if (ln.tag === 'BIRT') pending = 'BIRT';
-          else if (ln.tag === 'DEAT') pending = 'DEAT';
-        } else if (ln.level === 2 && ln.tag === 'DATE' && pending) {
-          if (pending === 'BIRT') block.birth = ln.value;
-          if (pending === 'DEAT') block.death = ln.value;
+          else if (isGedcomEventTag(ln.tag)) {
+            const raw = ln.value?.trim();
+            pending = {
+              type: ln.tag,
+              description:
+                raw && raw !== 'Y' && raw !== 'N' ? raw : undefined,
+            };
+            block.events.push(pending);
+            if (ln.tag === 'BIRT') block.birth = pending.date;
+            else if (ln.tag === 'DEAT') block.death = pending.date;
+          } else {
+            pending = null;
+          }
+        } else if (pending && ln.level === 2) {
+          applyEventField(pending, ln.tag, ln.value);
+          if (pending.type === 'BIRT') block.birth = pending.date;
+          else if (pending.type === 'DEAT') block.death = pending.date;
         }
         i++;
       }
@@ -96,14 +125,28 @@ function readBlocks(lines: GedLine[]): { indi: IndiBlock[]; fam: FamBlock[] } {
       continue;
     }
     if (L.tag === 'FAM' && L.pointer) {
-      const block: FamBlock = { xref: L.pointer, children: [] };
+      const block: FamBlock = { xref: L.pointer, children: [], events: [] };
       i++;
+      let pending: ParsedEvent | null = null;
       while (i < lines.length && lines[i].level > 0) {
         const ln = lines[i];
         if (ln.level === 1) {
           if (ln.tag === 'HUSB' && ln.value.startsWith('@')) block.husband = ln.value;
           else if (ln.tag === 'WIFE' && ln.value.startsWith('@')) block.wife = ln.value;
           else if (ln.tag === 'CHIL' && ln.value.startsWith('@')) block.children.push(ln.value);
+          else if (isGedcomEventTag(ln.tag)) {
+            const raw = ln.value?.trim();
+            pending = {
+              type: ln.tag,
+              description:
+                raw && raw !== 'Y' && raw !== 'N' ? raw : undefined,
+            };
+            block.events.push(pending);
+          } else {
+            pending = null;
+          }
+        } else if (pending && ln.level === 2) {
+          applyEventField(pending, ln.tag, ln.value);
         }
         i++;
       }
@@ -136,12 +179,14 @@ export function parseGedcom(text: string): TreeState {
     const id = createId('p');
     xrefToId.set(k, id);
     const { first, last } = ib.name ? parseName(ib.name) : { first: '', last: '' };
+    const sex = ib.sex?.trim().toUpperCase();
     const person: Person = {
       id,
       firstName: first,
       lastName: last,
       birthDate: ib.birth,
       deathDate: ib.death,
+      gender: sex === 'M' ? 'male' : sex === 'F' ? 'female' : undefined,
       notes: `Imported from GEDCOM (${k})`,
     };
     tree.persons[id] = person;
@@ -198,6 +243,43 @@ export function parseGedcom(text: string): TreeState {
     }
   }
 
+  for (const ib of indi) {
+    const pid = xrefToId.get(xrefKey(ib.xref));
+    if (!pid) continue;
+    for (const ev of ib.events) {
+      tree.events.push({
+        id: createId('ev'),
+        type: ev.type,
+        date: ev.date,
+        place: ev.place,
+        description: ev.description,
+        personIds: [pid],
+      });
+    }
+  }
+
+  for (const fb of fam) {
+    const personIds: string[] = [];
+    if (fb.husband) {
+      const id = xrefToId.get(xrefKey(fb.husband));
+      if (id) personIds.push(id);
+    }
+    if (fb.wife) {
+      const id = xrefToId.get(xrefKey(fb.wife));
+      if (id) personIds.push(id);
+    }
+    for (const ev of fb.events) {
+      tree.events.push({
+        id: createId('ev'),
+        type: ev.type,
+        date: ev.date,
+        place: ev.place,
+        description: ev.description,
+        personIds,
+      });
+    }
+  }
+
   return tree;
 }
 
@@ -233,6 +315,8 @@ export function exportGedcom(tree: TreeState): string {
     const name = `${p.firstName} /${p.lastName || 'Unknown'}/`.trim();
     out.push(`0 ${xr} INDI`);
     out.push(`1 NAME ${name || '/Unknown/'}`);
+    if (p.gender === 'male') out.push('1 SEX M');
+    else if (p.gender === 'female') out.push('1 SEX F');
     if (p.birthDate) {
       out.push('1 BIRT');
       out.push(`2 DATE ${p.birthDate}`);

@@ -1,86 +1,135 @@
 import { memo } from 'react';
+import { NODE_W } from '@/lib/layoutTree';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { personDisplayName } from '@/lib/treeOps';
-import type { Person } from '@/types';
+import { Silhouette } from '@/components/avatar/Silhouette';
+import { personDisplayName, toRoman } from '@/lib/treeOps';
+import type { Gender, Person } from '@/types';
 
 export type PersonNodeData = {
   person: Person;
   selected: boolean;
   dimmed: boolean;
-  generationLabel?: string;
+  generation?: number;
+  /** Direct ancestor of the home person — bright connectors */
+  onSpine?: boolean;
 };
 
 export type PersonFlowNode = Node<PersonNodeData, 'person'>;
 
 const GOLD = '#C5A059';
 const RED = '#ff1a1a';
+const MALE = '#7E9DC2';
+const FEMALE = '#D9909C';
+
+function accentFor(gender?: Gender): string {
+  if (gender === 'male') return MALE;
+  if (gender === 'female') return FEMALE;
+  return GOLD;
+}
+
+function extractYear(value?: string): string {
+  if (!value) return '';
+  const m = value.match(/-?\d{3,4}/);
+  return m ? m[0] : value.trim();
+}
+
+function yearLine(person: Person): string {
+  const b = extractYear(person.birthDate);
+  const d = extractYear(person.deathDate);
+  if (b && d) return `${b} – ${d}`;
+  if (b) return b;
+  if (d) return `– ${d}`;
+  return '';
+}
 
 function PersonNodeInner(props: NodeProps<PersonFlowNode>) {
   const { data } = props;
-  const { person, selected, dimmed, generationLabel } = data;
+  const { person, selected, dimmed, generation, onSpine } = data;
   const name = personDisplayName(person);
-  const dates = [person.birthDate, person.deathDate].filter(Boolean).join(' – ');
-  const sub = dates || generationLabel || '';
+  const sub = yearLine(person);
   const isPlaceholderName = !name.trim() || /^unknown\b/i.test(name.trim());
   const showQuestion = isPlaceholderName && !person.photoDataUrl;
+  const accent = accentFor(person.gender);
+  const borderColor = selected ? RED : accent;
+  const roman = generation && generation > 0 ? toRoman(generation) : '';
+  const nodeW = NODE_W;
+  const avatar = 'h-20 w-20';
+  const nameCls = 'text-[11px]';
+  const yearCls = 'text-[10px] min-h-[14px]';
 
   return (
     <div
       className={[
-        'family-tree-person relative flex w-[128px] flex-col items-center rounded-none border-0 bg-transparent px-0 py-1 transition-all duration-200',
-        dimmed ? 'opacity-[0.38]' : 'opacity-100',
+        'family-tree-person relative flex flex-col items-center rounded-none border-0 bg-transparent px-0 py-1 transition-all duration-200',
+        dimmed ? 'opacity-[0.32]' : onSpine ? 'opacity-100' : 'opacity-[0.78]',
         selected ? 'scale-[1.03]' : '',
       ].join(' ')}
+      style={{ width: nodeW }}
     >
       <Handle
         type="target"
         position={Position.Top}
         className="!h-1.5 !w-1.5 !border !border-[#C5A059]/80 !bg-[#121212] !opacity-100"
       />
-      <div
-        className={[
-          'relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 bg-[#1a1a1a] transition-[border-color,box-shadow] duration-200',
-          selected
-            ? 'border-[#ff1a1a] shadow-[0_0_14px_rgba(255,26,26,0.45)]'
-            : 'border-[#C5A059] shadow-[inset_0_0_0_1px_rgba(197,160,89,0.15)]',
-        ].join(' ')}
-        style={{ borderColor: selected ? RED : GOLD }}
-      >
-        {person.photoDataUrl ? (
-          <img
-            src={person.photoDataUrl}
-            alt=""
-            className="h-full w-full object-cover contrast-[0.92] saturate-[0.78]"
-          />
-        ) : showQuestion ? (
-          <div
-            className="flex h-full w-full items-center justify-center font-['Montserrat',system-ui,sans-serif] text-2xl font-semibold text-[#C5A059]"
-            style={{ color: GOLD }}
-          >
-            ?
-          </div>
-        ) : (
-          <div
-            className="flex h-full w-full items-center justify-center font-['Montserrat',system-ui,sans-serif] text-sm font-semibold tracking-wide text-[#C5A059]"
-            style={{ color: GOLD }}
-          >
-            {name.split(/\s+/)
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((w) => w[0]?.toUpperCase())
-              .join('')}
-          </div>
-        )}
-      </div>
-      <div className="mt-2 w-full px-0.5 text-center">
-        <div className="line-clamp-2 min-h-[2.25rem] text-[11px] font-semibold leading-tight text-white font-['Montserrat',system-ui,sans-serif]">
-          {name || '—'}
+      <div className="relative">
+        <div
+          className={[
+            'relative shrink-0 overflow-hidden rounded-full border-2 bg-[#1a1a1a] transition-[border-color,box-shadow] duration-200',
+            avatar,
+            onSpine ? 'border-[2.5px]' : '',
+          ].join(' ')}
+          style={{
+            borderColor,
+            boxShadow: selected
+              ? `0 0 14px ${RED}73`
+              : onSpine
+                ? `0 0 10px ${accent}55, inset 0 0 0 1px ${accent}40`
+                : `inset 0 0 0 1px ${accent}26`,
+          }}
+        >
+          {person.photoDataUrl ? (
+            <img
+              src={person.photoDataUrl}
+              alt=""
+              className="h-full w-full object-cover contrast-[0.92] saturate-[0.78]"
+            />
+          ) : showQuestion ? (
+            <div
+              className="flex h-full w-full items-center justify-center font-['Montserrat',system-ui,sans-serif] text-2xl font-semibold"
+              style={{ color: accent }}
+            >
+              ?
+            </div>
+          ) : (
+            <Silhouette
+              gender={person.gender}
+              color={accent}
+              className="h-full w-full"
+            />
+          )}
         </div>
-        {sub ? (
-          <div className="mt-0.5 truncate text-[10px] font-medium text-[#C5A059]/80 font-['Montserrat',system-ui,sans-serif]">
-            {sub}
+        {roman ? (
+          <div
+            className="absolute -bottom-1 -right-1 flex min-h-[18px] min-w-[22px] items-center justify-center rounded-full border bg-[#121212] px-1 font-['Cormorant_Garamond',Georgia,serif] text-[10px] font-semibold leading-none tracking-wider"
+            style={{ borderColor: accent, color: accent }}
+            title={`Generation ${generation}`}
+          >
+            {roman}
           </div>
         ) : null}
+      </div>
+      <div className="mt-2 w-full px-0.5 text-center">
+        <div
+          className={`line-clamp-2 font-semibold leading-tight text-white font-['Montserrat',system-ui,sans-serif] ${nameCls}`}
+        >
+          {name || '—'}
+        </div>
+        <div
+          className={`truncate font-medium font-['Montserrat',system-ui,sans-serif] ${yearCls}`}
+          style={{ color: `${accent}cc` }}
+        >
+          {sub}
+        </div>
       </div>
       <Handle
         type="source"

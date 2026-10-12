@@ -2,15 +2,22 @@ import { useRef, type ChangeEvent } from 'react';
 import { exportGedcom, parseGedcom } from '@/services/gedcom';
 import { exportTreeJson, parseTreeJson } from '@/services/jsonExport';
 import { useCanRedo, useCanUndo, useTreeStore } from '@/store/treeStore';
-import { isTreeEmpty } from '@/lib/treeOps';
+import {
+  computeLineage,
+  filterTreeToIds,
+  isTreeEmpty,
+  personDisplayName,
+} from '@/lib/treeOps';
 import { sampleTree } from '@/data/sampleTree';
 
 export function Toolbar() {
   const gedRef = useRef<HTMLInputElement>(null);
   const jsonRef = useRef<HTMLInputElement>(null);
+  const view = useTreeStore((s) => s.view);
   const searchQuery = useTreeStore((s) => s.searchQuery);
   const setSearch = useTreeStore((s) => s.setSearchQuery);
   const tree = useTreeStore((s) => s.tree);
+  const focusedId = useTreeStore((s) => s.focusedId);
   const undo = useTreeStore((s) => s.undo);
   const redo = useTreeStore((s) => s.redo);
   const addPerson = useTreeStore((s) => s.addPerson);
@@ -19,6 +26,25 @@ export function Toolbar() {
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
   const empty = isTreeEmpty(tree);
+  const focusedPerson =
+    focusedId && tree.persons[focusedId] ? tree.persons[focusedId] : null;
+
+  const slugify = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'lineage';
+
+  const exportGedcomNow = () => {
+    if (focusedPerson) {
+      const ids = computeLineage(tree, focusedPerson.id);
+      const subtree = filterTreeToIds(tree, ids);
+      const name = slugify(personDisplayName(focusedPerson));
+      download(`ancestra-lineage-${name}.ged`, 'text/plain', exportGedcom(subtree));
+    } else {
+      download('ancestra-tree.ged', 'text/plain', exportGedcom(tree));
+    }
+  };
 
   const download = (filename: string, mime: string, body: string) => {
     const blob = new Blob([body], { type: mime });
@@ -67,20 +93,22 @@ export function Toolbar() {
 
   return (
     <div className="flex flex-col gap-3 border-b border-border bg-surface-muted/40 px-4 py-3 md:flex-row md:flex-wrap md:items-center md:gap-2 md:px-6">
-      <div className="flex flex-1 min-w-[200px] max-w-md items-center gap-2">
-        <label className="sr-only" htmlFor="search">
-          Search people
-        </label>
-        <input
-          id="search"
-          value={searchQuery}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name…"
-          className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30 transition"
-        />
-      </div>
+      {view === 'tree' && (
+        <div className="flex flex-1 min-w-[200px] max-w-md items-center gap-2">
+          <label className="sr-only" htmlFor="search">
+            Search people
+          </label>
+          <input
+            id="search"
+            value={searchQuery}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name…"
+            className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/30 transition"
+          />
+        </div>
+      )}
 
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className={`flex flex-wrap gap-2 items-center ${view === 'people' ? 'flex-1' : ''}`}>
         <button
           type="button"
           onClick={() => {
@@ -148,10 +176,15 @@ export function Toolbar() {
         <button
           type="button"
           disabled={empty}
-          onClick={() => download('ancestra-tree.ged', 'text/plain', exportGedcom(tree))}
+          onClick={exportGedcomNow}
+          title={
+            focusedPerson
+              ? `Export only ${personDisplayName(focusedPerson)}'s lineage`
+              : 'Export the full tree'
+          }
           className="rounded-xl border border-border bg-surface px-3 py-2 text-sm disabled:opacity-40 hover:border-accent/40 transition"
         >
-          Export GEDCOM
+          {focusedPerson ? 'Export lineage GEDCOM' : 'Export GEDCOM'}
         </button>
 
         <button

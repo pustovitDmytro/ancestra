@@ -1,0 +1,13 @@
+html,
+body,
+#root {
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Keep screenshots focused on the tree layout */
+.family-tree-controls,
+.react-flow__minimap,
+.family-tree-canvas .react-flow__panel {
+  display: none !important;
+}

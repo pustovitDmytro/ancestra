@@ -11,5 +11,6 @@ export function parseTreeJson(text: string): TreeState {
   }
   if (!Array.isArray(data.parentChild)) data.parentChild = [];
   if (!Array.isArray(data.partnerships)) data.partnerships = [];
+  if (!Array.isArray(data.events)) data.events = [];
   return data;
 }
