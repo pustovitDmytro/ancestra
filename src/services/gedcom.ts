@@ -382,10 +382,10 @@ export function exportGedcom(tree: TreeState): string {
     if (ids.length === 0) continue;
     const pairFam = ids.length === 2 ? famXrefByPair.get(pairKey(ids[0]!, ids[1]!)) : undefined;
     if (pairFam) famLines.get(pairFam)!.push(...eventLines(event));
-    else if (ids.length === 1 && FAMILY_EVENT_TAGS.has(event.type)) {
-      famLines.get(soloFamOf(ids[0]!))!.push(...eventLines(event));
-    } else {
+    else if (FAMILY_EVENT_TAGS.has(event.type)) {
       // Without a partnership a shared FAM would turn into one on re-import.
+      for (const id of ids) famLines.get(soloFamOf(id))!.push(...eventLines(event));
+    } else {
       for (const id of ids) addIndiEvent(id, event);
     }
   }
