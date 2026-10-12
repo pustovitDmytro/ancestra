@@ -1,4 +1,4 @@
-import { personDisplayName } from '@/lib/treeOps';
+import { cloneTree, personDisplayName, syncPersonDateEventsOp } from '@/lib/treeOps';
 import type { FamilyEvent, Person, PersonId, TreeState } from '@/types';
 
 const MONTHS: Record<string, number> = {
@@ -164,8 +164,11 @@ function backfillPersonEvents(tree: TreeState): FamilyEvent[] {
 
 /** Populate events from person dates when a tree predates event storage */
 export function ensureTreeEvents(tree: TreeState): TreeState {
-  if (tree.events?.length) return tree;
-  return { ...tree, events: backfillPersonEvents(tree) };
+  if (!tree.events?.length) return { ...tree, events: backfillPersonEvents(tree) };
+  // Trees saved before date edits were mirrored into events can hold stale BIRT/DEAT.
+  const next = cloneTree(tree);
+  for (const id of Object.keys(next.persons)) syncPersonDateEventsOp(next, id);
+  return next;
 }
 
 export function collectTimelineEvents(tree: TreeState): FamilyEvent[] {

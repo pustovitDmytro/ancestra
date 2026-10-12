@@ -1,5 +1,5 @@
 import { createId } from '@/lib/id';
-import type { Person, PersonId, TreeState } from '@/types';
+import type { FamilyEvent, Person, PersonId, TreeState } from '@/types';
 import { emptyTree } from '@/types';
 
 export function cloneTree(t: TreeState): TreeState {
@@ -21,7 +21,36 @@ export function addPersonOp(
     gender: partial.gender,
     photoDataUrl: partial.photoDataUrl,
   };
+  syncPersonDateEventsOp(tree, id);
   return id;
+}
+
+const DATE_EVENT_FIELDS = [
+  ['BIRT', 'birthDate'],
+  ['DEAT', 'deathDate'],
+] as const;
+
+/** Mirror a person's birth/death dates into their single-person BIRT/DEAT events */
+export function syncPersonDateEventsOp(tree: TreeState, id: PersonId): void {
+  const person = tree.persons[id];
+  if (!person) return;
+  tree.events ??= [];
+  for (const [type, field] of DATE_EVENT_FIELDS) {
+    const date = person[field]?.trim() || undefined;
+    const own = (e: FamilyEvent) =>
+      e.type === type && e.personIds.length === 1 && e.personIds[0] === id;
+    if (date && tree.events.some((e) => own(e) && e.date === date)) continue;
+    const idx = tree.events.findIndex(own);
+    const event = idx === -1 ? undefined : tree.events[idx];
+    if (event) {
+      if (event.date === date) continue;
+      // A dateless event with no place or description carries nothing worth keeping.
+      if (!date && !event.place && !event.description) tree.events.splice(idx, 1);
+      else event.date = date;
+    } else if (date) {
+      tree.events.push({ id: createId('ev'), type, date, personIds: [id] });
+    }
+  }
 }
 
 export function removePersonOp(tree: TreeState, id: PersonId): void {

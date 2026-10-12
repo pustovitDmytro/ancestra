@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { NODE_W } from '@/lib/layoutTree';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { Silhouette } from '@/components/avatar/Silhouette';
+import { dateYear } from '@/lib/personFilters';
 import { personDisplayName, toRoman } from '@/lib/treeOps';
 import type { Gender, Person } from '@/types';
 
@@ -29,8 +30,7 @@ function accentFor(gender?: Gender): string {
 
 function extractYear(value?: string): string {
   if (!value) return '';
-  const m = value.match(/-?\d{3,4}/);
-  return m ? m[0] : value.trim();
+  return dateYear(value) ?? value.trim();
 }
 
 function yearLine(person: Person): string {

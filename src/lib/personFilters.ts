@@ -22,15 +22,19 @@ export const defaultPeopleFilters = (): PeopleFilters => ({
   sort: 'name-asc',
 });
 
+/** First 3-4 digit year in a free-form or GEDCOM date */
+export function dateYear(value?: string): string | null {
+  return value?.match(/-?\d{3,4}/)?.[0] ?? null;
+}
+
 function extractYear(value?: string): number | null {
-  if (!value) return null;
-  const m = value.match(/-?\d{3,4}/);
-  return m ? Number(m[0]) : null;
+  const year = dateYear(value);
+  return year === null ? null : Number(year);
 }
 
 export function personYearLine(person: Person): string {
-  const b = person.birthDate?.match(/-?\d{3,4}/)?.[0] ?? '';
-  const d = person.deathDate?.match(/-?\d{3,4}/)?.[0] ?? '';
+  const b = dateYear(person.birthDate) ?? '';
+  const d = dateYear(person.deathDate) ?? '';
   if (b && d) return `${b} – ${d}`;
   if (b) return b;
   if (d) return `– ${d}`;

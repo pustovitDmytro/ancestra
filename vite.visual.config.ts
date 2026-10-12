@@ -5,7 +5,11 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 const src = fileURLToPath(new URL('./src', import.meta.url));
-const gedRoot = fileURLToPath(new URL('./ged', import.meta.url));
+/** Private trees win over public fixtures when names collide */
+const gedRoots = [
+  fileURLToPath(new URL('./ged', import.meta.url)),
+  fileURLToPath(new URL('./tests/fixtures', import.meta.url)),
+];
 
 function serveGedDir(): Plugin {
   return {
@@ -19,8 +23,10 @@ function serveGedDir(): Plugin {
           res.end('Expected /ged/<file>.ged');
           return;
         }
-        const filePath = join(gedRoot, base);
-        if (!filePath.startsWith(gedRoot) || !existsSync(filePath)) {
+        const filePath = gedRoots
+          .map((root) => join(root, base))
+          .find((path, i) => path.startsWith(gedRoots[i]!) && existsSync(path));
+        if (!filePath) {
           res.statusCode = 404;
           res.end('Not found');
           return;

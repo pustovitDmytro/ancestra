@@ -31,8 +31,6 @@ export const PARTNER_GAP = 24;
 export interface LayoutPosition {
   x: number;
   y: number;
-  /** 1 = direct ancestral line; ~0.68 = collateral relative */
-  scale?: number;
 }
 
 export interface FamilyGroupLayout {
@@ -420,8 +418,6 @@ export function computeFamilyLayout(
   const spine = computeAncestralSpine(tree, proband);
   const branchSide = assignBranchSides(tree, proband);
 
-  const COLLATERAL_SCALE = COLLATERAL_NODE_W / NODE_W;
-
   function onSpine(personId: PersonId): boolean {
     return spine.has(personId);
   }
@@ -432,10 +428,6 @@ export function computeFamilyLayout(
 
   function nodeW(personId: PersonId): number {
     return onSpine(personId) ? NODE_W : COLLATERAL_NODE_W;
-  }
-
-  function nodeScale(personId: PersonId): number {
-    return onSpine(personId) ? 1 : COLLATERAL_SCALE;
   }
 
   /** Married-in spouse placed adjacent to their partner. */
@@ -543,7 +535,7 @@ export function computeFamilyLayout(
   }
 
   function setPos(personId: PersonId, leftX: number, y: number): void {
-    positions.set(personId, { x: leftX, y, scale: nodeScale(personId) });
+    positions.set(personId, { x: leftX, y });
     placed.add(personId);
   }
 
@@ -931,15 +923,15 @@ export function computeFamilyLayout(
   ): void {
     const leftX = cx - NODE_W - PARTNER_GAP / 2;
     const rightX = cx + PARTNER_GAP / 2;
-    positions.set(leftP, { x: leftX, y, scale: 1 });
-    positions.set(rightP, { x: rightX, y, scale: 1 });
+    positions.set(leftP, { x: leftX, y });
+    positions.set(rightP, { x: rightX, y });
     placed.add(leftP);
     placed.add(rightP);
     for (const pid of [leftP, rightP]) {
       const partner = adjacentPartnerOf(pid);
       if (!partner || partner === leftP || partner === rightP) continue;
       const baseX = pid === leftP ? leftX : rightX;
-      positions.set(partner, { x: baseX + NODE_W + PARTNER_GAP, y, scale: nodeScale(partner) });
+      positions.set(partner, { x: baseX + NODE_W + PARTNER_GAP, y });
       placed.add(partner);
     }
     let left = leftX;
@@ -1093,8 +1085,8 @@ export function computeFamilyLayout(
     const wR = nodeW(rightP);
     const totalW = wL + PARTNER_GAP + wR;
     const leftX = cx - totalW / 2;
-    positions.set(leftP, { x: leftX, y, scale: nodeScale(leftP) });
-    positions.set(rightP, { x: leftX + wL + PARTNER_GAP, y, scale: nodeScale(rightP) });
+    positions.set(leftP, { x: leftX, y });
+    positions.set(rightP, { x: leftX + wL + PARTNER_GAP, y });
     placed.add(leftP);
     placed.add(rightP);
     registerRow(y, leftX, leftX + totalW);
@@ -1339,8 +1331,4 @@ export function computeFamilyLayout(
   }
 
   return { positions, families, generations, spine, proband, branchSide };
-}
-
-export function layoutTree(tree: TreeState): Map<PersonId, LayoutPosition> {
-  return computeFamilyLayout(tree).positions;
 }

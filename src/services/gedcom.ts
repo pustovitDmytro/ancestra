@@ -4,7 +4,7 @@
 
 import { createId } from '@/lib/id';
 import { isGedcomEventTag } from '@/lib/familyEvents';
-import type { Person, TreeState } from '@/types';
+import type { FamilyEvent, Person, TreeState } from '@/types';
 import { emptyTree } from '@/types';
 
 interface GedLine {
@@ -291,12 +291,81 @@ function nextFamXref(): string {
   return `@F${gedcomSerial++}@`;
 }
 
+/** Tags that only make sense on a FAM record */
+const FAMILY_EVENT_TAGS = new Set(['ANUL', 'DIV', 'DIVF', 'ENGA', 'MARB', 'MARC', 'MARR']);
+/** Tags whose level-1 value is the event's descriptor rather than `Y` */
+const VALUE_EVENT_TAGS = new Set(['CAST', 'EDUC', 'OCCU', 'RELI']);
+
+function eventLines(event: FamilyEvent): string[] {
+  const valued = VALUE_EVENT_TAGS.has(event.type);
+  const empty = !event.date && !event.place && !event.description;
+  const value = valued ? (event.description ?? '') : empty ? 'Y' : '';
+  const out = [`1 ${event.type}${value ? ` ${value}` : ''}`];
+  if (!valued && event.description) out.push(`2 TYPE ${event.description}`);
+  if (event.date) out.push(`2 DATE ${event.date}`);
+  if (event.place) out.push(`2 PLAC ${event.place}`);
+  return out;
+}
+
 /** Export TreeState to a basic, valid GEDCOM file */
 export function exportGedcom(tree: TreeState): string {
   gedcomSerial = 1;
   const idToXref = new Map<string, string>();
   for (const id of Object.keys(tree.persons)) {
     idToXref.set(id, nextIndiXref());
+  }
+
+  const pairKey = (a: string, b: string) => [a, b].sort().join('|');
+  const famLines = new Map<string, string[]>();
+  const famXrefByPair = new Map<string, string>();
+  const parentFam = new Map<string, string>();
+
+  const openFam = (parentIds: string[]): string => {
+    const fx = nextFamXref();
+    const lines: string[] = [];
+    const [a, b] = parentIds.map((id) => idToXref.get(id));
+    if (a) lines.push(`1 HUSB ${a}`);
+    if (b) lines.push(`1 WIFE ${b}`);
+    famLines.set(fx, lines);
+    return fx;
+  };
+
+  for (const pr of tree.partnerships) {
+    const fx = openFam([pr.aId, pr.bId]);
+    famXrefByPair.set(pairKey(pr.aId, pr.bId), fx);
+    parentFam.set(pr.aId, fx);
+    parentFam.set(pr.bId, fx);
+  }
+
+  const chilSeen = new Set<string>();
+  for (const pc of tree.parentChild) {
+    let fx = parentFam.get(pc.parentId);
+    if (!fx) {
+      fx = openFam([pc.parentId]);
+      parentFam.set(pc.parentId, fx);
+    }
+    const cx = idToXref.get(pc.childId);
+    if (cx && !chilSeen.has(`${fx}|${cx}`)) {
+      chilSeen.add(`${fx}|${cx}`);
+      famLines.get(fx)!.push(`1 CHIL ${cx}`);
+    }
+  }
+
+  const indiEvents = new Map<string, FamilyEvent[]>();
+  for (const event of tree.events ?? []) {
+    const ids = event.personIds.filter((id) => idToXref.has(id));
+    if (ids.length === 0) continue;
+    if (ids.length === 1 && !FAMILY_EVENT_TAGS.has(event.type)) {
+      indiEvents.set(ids[0], [...(indiEvents.get(ids[0]) ?? []), event]);
+      continue;
+    }
+    const pair = ids.length >= 2 ? pairKey(ids[0], ids[1]) : '';
+    let fx = famXrefByPair.get(pair);
+    if (!fx) {
+      fx = openFam(ids.slice(0, 2));
+      if (pair) famXrefByPair.set(pair, fx);
+    }
+    famLines.get(fx)!.push(...eventLines(event));
   }
 
   const out: string[] = [
@@ -317,59 +386,23 @@ export function exportGedcom(tree: TreeState): string {
     out.push(`1 NAME ${name || '/Unknown/'}`);
     if (p.gender === 'male') out.push('1 SEX M');
     else if (p.gender === 'female') out.push('1 SEX F');
-    if (p.birthDate) {
+    const events = indiEvents.get(p.id) ?? [];
+    if (p.birthDate && !events.some((e) => e.type === 'BIRT')) {
       out.push('1 BIRT');
       out.push(`2 DATE ${p.birthDate}`);
     }
-    if (p.deathDate) {
+    if (p.deathDate && !events.some((e) => e.type === 'DEAT')) {
       out.push('1 DEAT');
       out.push(`2 DATE ${p.deathDate}`);
     }
+    for (const event of events) out.push(...eventLines(event));
     if (p.notes) {
       out.push(`1 NOTE ${p.notes.replace(/\n/g, ' ').slice(0, 248)}`);
     }
   }
 
-  const pairKey = (a: string, b: string) => [a, b].sort().join('|');
-  const famXrefByPair = new Map<string, string>();
-
-  for (const pr of tree.partnerships) {
-    const fx = nextFamXref();
-    famXrefByPair.set(pairKey(pr.aId, pr.bId), fx);
-    out.push(`0 ${fx} FAM`);
-    const a = idToXref.get(pr.aId);
-    const b = idToXref.get(pr.bId);
-    if (a) out.push(`1 HUSB ${a}`);
-    if (b) out.push(`1 WIFE ${b}`);
-  }
-
-  const parentFam = new Map<string, string>();
-  for (const pr of tree.partnerships) {
-    const fx = famXrefByPair.get(pairKey(pr.aId, pr.bId));
-    if (fx) {
-      parentFam.set(pr.aId, fx);
-      parentFam.set(pr.bId, fx);
-    }
-  }
-
-  const chilSeen = new Set<string>();
-  for (const pc of tree.parentChild) {
-    let fx = parentFam.get(pc.parentId);
-    if (!fx) {
-      fx = nextFamXref();
-      out.push(`0 ${fx} FAM`);
-      const px = idToXref.get(pc.parentId);
-      if (px) out.push(`1 HUSB ${px}`);
-      parentFam.set(pc.parentId, fx);
-    }
-    const cx = idToXref.get(pc.childId);
-    if (cx) {
-      const ck = `${fx}|${cx}`;
-      if (!chilSeen.has(ck)) {
-        chilSeen.add(ck);
-        out.push(`1 CHIL ${cx}`);
-      }
-    }
+  for (const [fx, lines] of famLines) {
+    out.push(`0 ${fx} FAM`, ...lines);
   }
 
   out.push('0 TRLR');

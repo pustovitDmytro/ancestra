@@ -7,4 +7,6 @@ dist
 *.tsbuildinfo
 tmp/*
 test-results
-playwright-reportged/
+playwright-report
+# Private family trees: real people, never commit
+ged/

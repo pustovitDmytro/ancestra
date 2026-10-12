@@ -8,6 +8,7 @@ import {
   removeParentChildOp,
   removePartnershipOp,
   removePersonOp,
+  syncPersonDateEventsOp,
 } from '@/lib/treeOps';
 
 const HISTORY_MAX = 50;
@@ -120,6 +121,7 @@ export const useTreeStore = create<TreeStore>((set, get) => ({
       const p = next.persons[id];
       if (!p) return;
       Object.assign(p, patch);
+      if ('birthDate' in patch || 'deathDate' in patch) syncPersonDateEventsOp(next, id);
       get().commit(next);
     },
 
