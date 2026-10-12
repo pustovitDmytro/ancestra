@@ -48,17 +48,27 @@ body {
   stroke-linejoin: round;
 }
 
-.family-tree-canvas .family-edge-parent .react-flow__edge-path {
-  stroke-opacity: 0.48;
+.family-tree-canvas .family-edge-marriage .react-flow__edge-path {
+  stroke-opacity: 0.65;
+}
+
+.family-tree-canvas .family-edge-spine .react-flow__edge-path {
+  stroke-opacity: 1;
+  filter: drop-shadow(0 0 2px rgba(232, 200, 120, 0.45));
+}
+
+.family-tree-canvas .family-edge-collateral .react-flow__edge-path {
+  stroke-opacity: 0.3;
 }
 
 .family-tree-canvas .family-edge-child .react-flow__edge-path {
-  stroke-opacity: 0.7;
-  filter: drop-shadow(0 0 1px rgba(197, 160, 89, 0.2));
+  stroke-opacity: 0.96;
+  filter: drop-shadow(0 0 1px rgba(197, 160, 89, 0.28));
 }
 
-.family-tree-canvas .family-edge-partner .react-flow__edge-path {
-  stroke-opacity: 0.26;
+.family-tree-canvas .family-edge-child.family-edge-spine .react-flow__edge-path {
+  stroke-opacity: 1;
+  filter: drop-shadow(0 0 2px rgba(232, 200, 120, 0.5));
 }
 
 .family-tree-canvas .family-hub-node {
@@ -70,6 +80,12 @@ body {
 .family-tree-canvas .react-flow__arrowhead polygon {
   stroke: #c5a059;
   fill: #c5a059;
+}
+
+.family-tree-canvas .family-edge-child.family-edge-spine .react-flow__arrowhead polyline,
+.family-tree-canvas .family-edge-child.family-edge-spine .react-flow__arrowhead polygon {
+  stroke: #e8c878;
+  fill: #e8c878;
 }
 
 .family-tree-controls .react-flow__controls-button {

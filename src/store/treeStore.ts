@@ -8,6 +8,7 @@ import {
   removeParentChildOp,
   removePartnershipOp,
   removePersonOp,
+  syncPersonDateEventsOp,
 } from '@/lib/treeOps';
 
 const HISTORY_MAX = 50;
@@ -16,17 +17,24 @@ function snapshot(t: TreeState): TreeState {
   return cloneTree(t);
 }
 
+export type AppView = 'tree' | 'people' | 'events';
+
 interface TreeStore {
   tree: TreeState;
+  view: AppView;
   selectedId: PersonId | null;
+  focusedId: PersonId | null;
   searchQuery: string;
   hydrated: boolean;
   past: TreeState[];
   future: TreeState[];
 
   setHydrated: (v: boolean) => void;
+  setView: (v: AppView) => void;
   setSearchQuery: (q: string) => void;
   selectPerson: (id: PersonId | null) => void;
+  focusLineage: (id: PersonId) => void;
+  clearFocus: () => void;
 
   commit: (next: TreeState) => void;
   replaceTree: (next: TreeState, skipHistory?: boolean) => void;
@@ -46,15 +54,20 @@ interface TreeStore {
 
 export const useTreeStore = create<TreeStore>((set, get) => ({
     tree: emptyTree(),
+    view: 'tree',
     selectedId: null,
+    focusedId: null,
     searchQuery: '',
     hydrated: false,
     past: [],
     future: [],
 
     setHydrated: (v) => set({ hydrated: v }),
+    setView: (v) => set({ view: v }),
     setSearchQuery: (q) => set({ searchQuery: q }),
     selectPerson: (id) => set({ selectedId: id }),
+    focusLineage: (id) => set({ focusedId: id, selectedId: id }),
+    clearFocus: () => set({ focusedId: null }),
 
     commit: (next) => {
       const { tree, past } = get();
@@ -108,6 +121,7 @@ export const useTreeStore = create<TreeStore>((set, get) => ({
       const p = next.persons[id];
       if (!p) return;
       Object.assign(p, patch);
+      if ('birthDate' in patch || 'deathDate' in patch) syncPersonDateEventsOp(next, id);
       get().commit(next);
     },
 
@@ -115,8 +129,11 @@ export const useTreeStore = create<TreeStore>((set, get) => ({
       const next = cloneTree(get().tree);
       removePersonOp(next, id);
       get().commit(next);
-      const sel = get().selectedId;
-      if (sel === id) set({ selectedId: null });
+      const { selectedId: sel, focusedId: foc } = get();
+      const patch: { selectedId?: null; focusedId?: null } = {};
+      if (sel === id) patch.selectedId = null;
+      if (foc === id) patch.focusedId = null;
+      if (Object.keys(patch).length) set(patch);
     },
 
     addParentChild: (parentId, childId) => {
@@ -145,15 +162,18 @@ export const useTreeStore = create<TreeStore>((set, get) => ({
 
     clearAll: () => {
       get().commit(emptyTree());
-      set({ selectedId: null });
+      set({ selectedId: null, focusedId: null });
     },
 
     importTree: (next) => {
+      const tree = cloneTree(next);
+      if (!tree.events) tree.events = [];
       set({
-        tree: cloneTree(next),
+        tree,
         past: [],
         future: [],
         selectedId: null,
+        focusedId: null,
       });
     },
   })

@@ -5,3 +5,8 @@ dist
 .env
 .env.*
 *.tsbuildinfo
+tmp/*
+test-results
+playwright-report
+# Private family trees: real people, never commit
+ged/
