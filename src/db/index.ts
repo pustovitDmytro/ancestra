@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { standKey } from '@/lib/stand';
 import type { TreeState } from '@/types';
 
 interface TreeRow {
@@ -10,7 +11,7 @@ class AncestraDB extends Dexie {
   tree!: Table<TreeRow, string>;
 
   constructor() {
-    super('ancestra');
+    super(standKey('ancestra'));
     this.version(1).stores({ tree: 'id' });
   }
 }

@@ -1,4 +1,5 @@
 import { useTheme } from '@/hooks/useTheme';
+import { STAND } from '@/lib/stand';
 import { useTreeStore, type AppView } from '@/store/treeStore';
 
 const VIEWS: { id: AppView; label: string }[] = [
@@ -20,7 +21,17 @@ export function Header() {
             A
           </div>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold tracking-tight text-ink truncate">Ancestra</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-base font-semibold tracking-tight text-ink truncate">Ancestra</h1>
+              {STAND && (
+                <span
+                  className="shrink truncate rounded-md border border-accent/50 bg-accent/15 px-1.5 py-0.5 text-[11px] font-medium text-ink"
+                  title="Preview build: its data is stored separately from the main site"
+                >
+                  preview · {STAND}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-ink-muted hidden sm:block">Private family trees — offline first</p>
           </div>
         </div>
