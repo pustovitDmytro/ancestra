@@ -18,6 +18,15 @@ npm run build
 npm run preview
 ```
 
+## Deployment
+
+GitHub Actions ([`.github/workflows/pages.yml`](.github/workflows/pages.yml)) tests, builds and publishes the app to GitHub Pages:
+
+- `master` → https://pustovitdmytro.github.io/ancestra/
+- any other branch → `https://pustovitdmytro.github.io/ancestra/preview/<branch>/`; the preview is removed when the branch is deleted.
+
+All of them share one origin, so a preview build keeps its data in its own IndexedDB database (`ancestra@<branch>`) and shows a `preview · <branch>` badge in the header. Trees from the main site are not visible on a preview — use **Export JSON** / **Import**, or **Load sample**.
+
 The built assets are static; there is no service worker, so the app needs the server to load.
 
 ## Features
